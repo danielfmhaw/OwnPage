@@ -2,23 +2,24 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { Customer } from '../models/Customer';
+import type { RoleManagement } from '../models/RoleManagement';
+import type { RoleManagementWithName } from '../models/RoleManagementWithName';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
-export class CustomersService {
+export class RoleManagementsService {
     /**
-     * Retrieve a list of customers
+     * Retrieve a list of role managements with project names
      * @param filter Query filter string, e.g. project_id:$eq.1|2|3
-     * @returns Customer A list of customers
+     * @returns RoleManagementWithName A list of role managements with project names
      * @throws ApiError
      */
-    public static getCustomers(
+    public static getRoleManagements(
         filter?: string,
-    ): CancelablePromise<Array<Customer>> {
+    ): CancelablePromise<Array<RoleManagementWithName>> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/customers',
+            url: '/rolemanagements',
             query: {
                 'filter': filter,
             },
@@ -30,71 +31,94 @@ export class CustomersService {
         });
     }
     /**
-     * Delete a customer by ID
-     * @param id ID of the primary key to delete
-     * @param cascade Whether to delete related data as well
+     * Delete a role management by email and project ID
+     * @param email Email address of the user to retrieve or modify
+     * @param projectId Project ID of the primary key to delete
      * @returns void
      * @throws ApiError
      */
-    public static deleteCustomer(
-        id: number,
-        cascade?: boolean,
+    public static deleteRoleManagementByEmailAndProjectId(
+        email: string,
+        projectId: number,
     ): CancelablePromise<void> {
         return __request(OpenAPI, {
             method: 'DELETE',
-            url: '/customers',
+            url: '/rolemanagements',
             query: {
-                'id': id,
-                'cascade': cascade,
+                'email': email,
+                'project_id': projectId,
             },
             errors: {
                 400: `Bad request – missing or invalid ID`,
                 401: `Unauthorized – missing or invalid token`,
-                409: `Conflict – related data exists; use cascade=true to force delete`,
+                403: `Forbidden – with current permissions not allowed to delete`,
                 500: `Internal server error`,
             },
         });
     }
     /**
-     * Update a customer
+     * Update a role management
      * @param requestBody
-     * @returns any Customer updated successfully
+     * @returns any Role management updated successfully
      * @throws ApiError
      */
-    public static updateCustomer(
-        requestBody: Customer,
+    public static updateRoleManagement(
+        requestBody: RoleManagement,
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'PUT',
-            url: '/customers',
+            url: '/rolemanagements',
             body: requestBody,
             mediaType: 'application/json',
             errors: {
                 400: `Bad request – missing or invalid fields`,
                 401: `Unauthorized – missing or invalid token`,
-                404: `Customer not found`,
+                404: `Role management not found`,
                 500: `Internal server error`,
             },
         });
     }
     /**
-     * Create a new customer
+     * Create a new role management
      * @param requestBody
-     * @returns any Customer created successfully
+     * @returns any Role management created successfully
      * @throws ApiError
      */
-    public static createCustomer(
-        requestBody: Customer,
+    public static createRoleManagement(
+        requestBody: RoleManagement,
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/customers',
+            url: '/rolemanagements',
             body: requestBody,
             mediaType: 'application/json',
             errors: {
                 400: `Bad request – missing or invalid fields`,
                 401: `Unauthorized – missing or invalid token`,
                 409: `Conflict – duplicate or invalid data`,
+                500: `Internal server error`,
+            },
+        });
+    }
+    /**
+     * Retrieve a list of role managements for a given ID
+     * @param id ID of the primary key to retrieve
+     * @returns RoleManagement A list of role management entries
+     * @throws ApiError
+     */
+    public static getRoleManagementsById(
+        id: number,
+    ): CancelablePromise<Array<RoleManagement>> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/rolemanagements/{id}',
+            path: {
+                'id': id,
+            },
+            errors: {
+                401: `Unauthorized – missing or invalid token`,
+                403: `Forbidden – insufficient permissions`,
+                404: `Not Found – no role managements for the given ID`,
                 500: `Internal server error`,
             },
         });
