@@ -13,9 +13,7 @@ import {
     TabsList,
     TabsTrigger
 } from "@/components/ui/tabs"
-import type {ColumnDef} from "@tanstack/react-table";
-import {Button} from "@/components/ui/button";
-import {ArrowUpDown} from "lucide-react";
+import {CustomColumnDef} from "@/models/datatable/column";
 import {useNotification} from "@/components/helpers/NotificationProvider";
 import {SimpleTable} from "@/components/helpers/SimpleTable";
 import {useTranslation} from "react-i18next";
@@ -85,17 +83,11 @@ export default function CustomerDetailContent({rowData, onClose, onRefresh}: Pro
             .finally(() => setIsLoadingUpdate(false));
     };
 
-    const columns: ColumnDef<OrderItemsWithBikeAndDate>[] = [
+    const columns: CustomColumnDef<OrderItemsWithBikeAndDate>[] = [
         {
             accessorKey: "order_date",
-            header: ({column}) => (
-                <Button
-                    variant="ghost"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                >
-                    {t("label.order_date")}<ArrowUpDown className="ml-2 h-4 w-4"/>
-                </Button>
-            ),
+            header: t("label.order_date"),
+            widthPercent: 30,
             cell: ({row}) => {
                 const date = new Date(row.getValue("order_date"))
                 return date.toLocaleDateString()
@@ -104,14 +96,17 @@ export default function CustomerDetailContent({rowData, onClose, onRefresh}: Pro
         {
             accessorKey: "model_name",
             header: t("label.bike_name"),
+            widthPercent: 40,
         },
         {
             accessorKey: "number",
             header: t("label.number"),
+            widthPercent: 15,
         },
         {
             accessorKey: "price",
             header: t("label.price"),
+            widthPercent: 15,
         },
     ]
 
@@ -167,7 +162,7 @@ export default function CustomerDetailContent({rowData, onClose, onRefresh}: Pro
                     <Card className="mt-4">
                         <CardContent className="pt-4">
                             <h3 className="text-lg font-semibold mb-4">{t("orders.history")}</h3>
-                            <SimpleTable data={data} columns={columns} isLoading={isLoadingData}/>
+                            <SimpleTable data={data} columns={columns} isLoading={isLoadingData} maxHeight={300}/>
                         </CardContent>
                     </Card>
                 </TabsContent>

@@ -27,7 +27,6 @@
   "label": {
     "id": "ID",
     "email": "E-Mail",
-    "user_email": "Benutzer E-Mail",
     "password": "Passwort",
     "name": "Name",
     "first_name": "Vorname",
@@ -172,5 +171,9 @@
     "single": "1 Projekt",
     "multiple": "{{count}} Projekte",
     "chosen": "Ausgewählt"
+  },
+  "pagination": {
+    "info": "{{from}}-{{to}} von {{total}}",
+    "page": "Elemente pro Seite"
   }
 }

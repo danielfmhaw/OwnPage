@@ -11,17 +11,29 @@ export class RoleManagementsService {
     /**
      * Retrieve a list of role managements with project names
      * @param filter Query filter string, e.g. project_id:$eq.1|2|3
-     * @returns RoleManagementWithName A list of role managements with project names
+     * @param page Specifying the page of the result set.
+     * @param pageSize Specifying the size of the result set.
+     * @param orderBy Specifying the sort order. The sort definition can use the keywords 'asc' for ascending and 'desc' for descending sort order.
+     * @returns any A list of role managements with project names with total count
      * @throws ApiError
      */
     public static getRoleManagements(
         filter?: string,
-    ): CancelablePromise<Array<RoleManagementWithName>> {
+        page?: number,
+        pageSize?: number,
+        orderBy?: string,
+    ): CancelablePromise<{
+        totalCount?: number;
+        items?: Array<RoleManagementWithName>;
+    }> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/rolemanagements',
             query: {
                 'filter': filter,
+                'page': page,
+                'pageSize': pageSize,
+                'orderBy': orderBy,
             },
             errors: {
                 401: `Unauthorized – missing or invalid token`,

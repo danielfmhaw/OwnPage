@@ -27,7 +27,6 @@
   "label": {
     "id": "ID",
     "email": "E-mail",
-    "user_email": "E-mail do usuário",
     "password": "Senha",
     "name": "Nome",
     "first_name": "Primeiro nome",
@@ -172,5 +171,9 @@
     "single": "1 ancestral",
     "multiple": "{{count}} ancestrais",
     "chosen": "Escolhido"
+  },
+  "pagination": {
+    "info": "{{from}}-{{to}} de {{total}}",
+    "page": "Itens por página"
   }
 }

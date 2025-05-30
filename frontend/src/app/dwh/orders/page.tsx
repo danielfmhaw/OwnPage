@@ -3,9 +3,9 @@ import {ContentLayout} from "@/components/admin-panel/content-layout";
 import {useSidebar} from "@/hooks/use-sidebar";
 import {useStore} from "@/hooks/use-store";
 import DataTable from "@/components/helpers/Table";
-import type {ColumnDef} from "@tanstack/react-table";
+import {CustomColumnDef} from "@/models/datatable/column";
 import {Button} from "@/components/ui/button";
-import {ArrowUpDown, Trash2} from "lucide-react";
+import {Trash2} from "lucide-react";
 import * as React from "react";
 import {Order, OrdersService, OrderWithCustomer} from "@/models/api";
 import {ButtonLoading} from "@/components/helpers/ButtonLoading";
@@ -13,31 +13,29 @@ import {useNotification} from "@/components/helpers/NotificationProvider";
 import OrderDialogContent from "@/app/dwh/orders/content-dialog";
 import {Dialog, DialogContent, DialogHeader, DialogTitle} from "@/components/ui/dialog";
 import {useTranslation} from "react-i18next";
-import FilterManager from "@/utils/filtermanager";
-import {isRoleUserForProject} from "@/utils/helpers";
+import {genericItemsLoader, isRoleUserForProject, useRefreshData} from "@/utils/helpers";
+import {ItemsLoaderOptions} from "@/models/datatable/itemsLoader";
 
 export default function OrderPage() {
     const {t} = useTranslation();
     const {addNotification} = useNotification();
-    const filterManager = new FilterManager();
+    const refreshData = useRefreshData(itemsLoader);
+
     const [data, setData] = React.useState<OrderWithCustomer[]>([]);
-    const [isLoadingData, setIsLoadingData] = React.useState(true);
+    const [totalCount, setTotalCount] = React.useState<number>(0);
     const [loadingDeleteId, setLoadingDeleteId] = React.useState<number | null>(null);
     const [isLoadingDeleteCascade, setIsLoadingDeleteCascade] = React.useState(false);
     const [showCascadeDialog, setShowCascadeDialog] = React.useState(false);
     const [deleteId, setDeleteId] = React.useState<number | null>(null);
 
-    const fetchData = async () => {
-        setIsLoadingData(true);
-        const filterString = await filterManager.getFilterStringWithProjectIds();
-        OrdersService.getOrders(filterString === "" ? undefined : filterString)
-            .then((orders) => {
-                const ordersWithCustomer = orders as OrderWithCustomer[];
-                setData(ordersWithCustomer);
-            })
-            .catch(err => addNotification(`Failed to load orders${err?.message ? `: ${err.message}` : ""}`, "error"))
-            .finally(() => setIsLoadingData(false));
-    };
+    async function itemsLoader(options: ItemsLoaderOptions): Promise<void> {
+        return genericItemsLoader<OrderWithCustomer>(
+            options,
+            OrdersService.getOrders,
+            setData,
+            setTotalCount
+        );
+    }
 
     const deleteOrder = (id: number, cascade: boolean = false) => {
         if (cascade) {
@@ -49,7 +47,7 @@ export default function OrderPage() {
         OrdersService.deleteOrder(id, cascade)
             .then(async () => {
                 addNotification(`Order with id ${id}${cascade ? " and related data" : ""} deleted successfully`, "success");
-                await fetchData();
+                await refreshData();
                 if (cascade) setShowCascadeDialog(false);
             })
             .catch((err) => {
@@ -84,25 +82,21 @@ export default function OrderPage() {
         setShowCascadeDialog(false);
     };
 
-    const columns: ColumnDef<Order>[] = [
+    const columns: CustomColumnDef<Order>[] = [
         {
             accessorKey: "customer_name",
             header: t("label.customer_name"),
+            widthPercent: 30,
         },
         {
             accessorKey: "customer_email",
             header: t("label.email"),
+            widthPercent: 40,
         },
         {
             accessorKey: "order_date",
-            header: ({column}) => (
-                <Button
-                    variant="ghost"
-                    onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                >
-                    {t("label.order_date")}<ArrowUpDown className="ml-2 h-4 w-4"/>
-                </Button>
-            ),
+            header: t("label.order_date"),
+            widthPercent: 25,
             cell: ({row}) => {
                 const date = new Date(row.getValue("order_date"))
                 return date.toLocaleDateString()
@@ -110,6 +104,7 @@ export default function OrderPage() {
         },
         {
             id: "actions",
+            widthPercent: 5,
             enableHiding: false,
             cell: ({row}) => {
                 const order: Order = row.original
@@ -138,22 +133,20 @@ export default function OrderPage() {
                 title={t("menu.orders")}
                 columns={columns}
                 data={data}
-                isLoading={isLoadingData}
+                itemsLoader={itemsLoader}
+                totalCount={totalCount}
                 filterColumn={"customer_name"}
-                onRefresh={async () => {
-                    await fetchData()
-                }}
                 rowDialogContent={(rowData, onClose) => (
                     <OrderDialogContent
                         rowData={rowData}
                         onClose={onClose}
-                        onRefresh={fetchData}
+                        onRefresh={refreshData}
                     />
                 )}
                 addDialogContent={(onClose) => (
                     <OrderDialogContent
                         onClose={onClose}
-                        onRefresh={fetchData}
+                        onRefresh={refreshData}
                     />
                 )}
             />

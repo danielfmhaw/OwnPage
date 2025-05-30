@@ -1,43 +1,106 @@
-import * as React from "react"
-import {Dialog} from "@/components/ui/dialog"
+import * as React from "react";
+import {Dialog} from "@/components/ui/dialog";
 import {
-    type ColumnDef,
     type ColumnFiltersState,
     type SortingState,
     type VisibilityState,
     getCoreRowModel,
     getFilteredRowModel,
-    getPaginationRowModel,
     getSortedRowModel,
     useReactTable,
-} from "@tanstack/react-table"
-import {Plus} from "lucide-react"
-import {Button} from "@/components/ui/button"
-import {Input} from "@/components/ui/input"
+    flexRender,
+} from "@tanstack/react-table";
+import {
+    ArrowDown,
+    ArrowUp,
+    ChevronLeft,
+    ChevronRight,
+    ChevronsLeft,
+    ChevronsRight,
+    Plus,
+} from "lucide-react";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import {Button} from "@/components/ui/button";
+import {Input} from "@/components/ui/input";
 import {SimpleTable} from "@/components/helpers/SimpleTable";
 import {useTranslation} from "react-i18next";
+import {defaultPageSize, Pagination} from "@/models/datatable/pagination";
+import {TableHead, TableRow} from "@/components/ui/table";
+import {Sort, SortDirection} from "@/models/datatable/sort";
+import {ItemsLoaderOptions} from "@/models/datatable/itemsLoader";
+import {useRouter, useSearchParams} from "next/navigation";
+import {useNotification} from "@/components/helpers/NotificationProvider";
+import {CustomColumnDef} from "@/models/datatable/column";
 
-interface DataTableProps {
+interface DataTableProps<TData> {
     title?: string;
-    columns: ColumnDef<any>[];
-    data: any[];
-    isLoading: boolean;
+    columns: CustomColumnDef<TData>[];
+    data: TData[];
+    itemsLoader: (opts: ItemsLoaderOptions) => Promise<void>;
+    totalCount: number;
     filterColumn: string;
-    onRefresh: () => void;
-    noHeaders?: boolean;
     rowDialogContent?: (row: any, onClose: () => void) => React.ReactNode;
     addDialogContent?: (onClose: () => void) => React.ReactNode;
 }
 
-export default function DataTable({title, columns, data, isLoading, filterColumn, onRefresh, noHeaders, rowDialogContent, addDialogContent}: DataTableProps) {
+export default function DataTable<TData>({
+                                             title,
+                                             columns,
+                                             data,
+                                             itemsLoader,
+                                             totalCount,
+                                             filterColumn,
+                                             rowDialogContent,
+                                             addDialogContent,
+                                         }: DataTableProps<TData>) {
     const {t} = useTranslation();
-    const [sorting, setSorting] = React.useState<SortingState>([])
-    const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
-    const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
-    const [rowSelection, setRowSelection] = React.useState({})
+    const {addNotification} = useNotification();
+    const router = useRouter();
+    const searchParams = useSearchParams();
+
+    const [sorting, setSorting] = React.useState<SortingState>([]);
+    const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+    const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+    const [rowSelection, setRowSelection] = React.useState({});
     const [isRowDialogOpen, setIsRowDialogOpen] = React.useState(false);
     const [isAddDialogOpen, setIsAddDialogOpen] = React.useState(false);
     const [selectedRow, setSelectedRow] = React.useState<any>(null);
+    const [isLoading, setIsLoading] = React.useState(false);
+
+    const paginationOptions = [10, 25, 50, 100];
+    const [pagination, setPagination] = React.useState(() => Pagination.fromQueryParams(searchParams));
+    const [sort, setSort] = React.useState(() => Sort.fromQueryParams(searchParams));
+    const maxPage = Math.ceil(totalCount / pagination.itemsPerPage);
+
+    React.useEffect(() => {
+        setIsLoading(true);
+
+        itemsLoader({pagination, sort})
+            .then(() => {
+                updateUrl(pagination, sort);
+            })
+            .catch(err => {
+                addNotification(`Error loading the data${err?.message ? `: ${err.message}` : ""}`, "error");
+            })
+            .finally(() => setIsLoading(false));
+    }, [pagination.page, pagination.itemsPerPage, sort]);
+
+    const updateUrl = (pagination: Pagination, sort: Sort) => {
+        const params = new URLSearchParams();
+        const pagParams = pagination.toQueryParams();
+        const sortParams = sort.toQueryParams();
+
+        Object.entries(pagParams).forEach(([k, v]) => params.set(k, v));
+        Object.entries(sortParams).forEach(([k, v]) => params.set(k, v));
+
+        router.push(`?${params.toString()}`);
+    };
 
     const handleRowClick = (row: any) => {
         if (rowDialogContent) {
@@ -52,40 +115,50 @@ export default function DataTable({title, columns, data, isLoading, filterColumn
         }
     };
 
-    React.useEffect(() => {
-        onRefresh();
-    }, [])
+    const updatePage = (newPage: number) =>
+        setPagination(prev => new Pagination(newPage, prev.itemsPerPage));
+
+    const updateItemsPerPage = (newSize: number) =>
+        setPagination(new Pagination(1, newSize));
+
+    const handleSortToggle = (key: string) => {
+        const index = sort.items.findIndex(item => item.key === key);
+        const updated = [...sort.items];
+
+        if (index !== -1) {
+            const current = updated[index];
+            current.order === SortDirection.ASC
+                ? (updated[index] = {key, order: SortDirection.DESC})
+                : updated.splice(index, 1);
+        } else {
+            updated.push({key, order: SortDirection.ASC});
+        }
+
+        setSort(new Sort(updated));
+        setPagination(new Pagination(1, defaultPageSize));
+    };
 
     const table = useReactTable({
         data,
         columns,
         onSortingChange: setSorting,
         onColumnFiltersChange: setColumnFilters,
-        getCoreRowModel: getCoreRowModel(),
-        getPaginationRowModel: getPaginationRowModel(),
-        getSortedRowModel: getSortedRowModel(),
-        getFilteredRowModel: getFilteredRowModel(),
         onColumnVisibilityChange: setColumnVisibility,
         onRowSelectionChange: setRowSelection,
-        state: {
-            sorting,
-            columnFilters,
-            columnVisibility,
-            rowSelection,
-        },
-    })
+        getCoreRowModel: getCoreRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+        state: {sorting, columnFilters, columnVisibility, rowSelection},
+    });
 
-    // @ts-ignore
     return (
-        <div className="mt-2 w-full p-4 border rounded-lg  border-zinc-900 dark:border-zinc-50">
+        <div className="mt-2 w-full p-4 border rounded-lg border-zinc-900 dark:border-zinc-50">
             {title}
             <div className="flex items-center py-4">
                 <Input
-                    placeholder={`${t("placeholder.filter")} ${filterColumn.replace(/_/g, ' ')} ...`}
+                    placeholder={`${t("placeholder.filter")} ${filterColumn.replace(/_/g, " ")} ...`}
                     value={(table.getColumn(filterColumn)?.getFilterValue() as string) ?? ""}
-                    onChange={(event) =>
-                        table.getColumn(filterColumn)?.setFilterValue(event.target.value)
-                    }
+                    onChange={(e) => table.getColumn(filterColumn)?.setFilterValue(e.target.value)}
                     className="max-w-sm border-zinc-900 dark:border-zinc-50"
                 />
                 <Button
@@ -95,45 +168,102 @@ export default function DataTable({title, columns, data, isLoading, filterColumn
                     <Plus className="mr-2 h-4 w-4"/>
                     {t("button.add")}
                 </Button>
+            </div>
 
-            </div>
             <div className="rounded-md border border-zinc-900 dark:border-zinc-500">
-                <SimpleTable table={table} data={data} isLoading={isLoading} columns={columns} onRowClick={handleRowClick} noHeaders={noHeaders}/>
+                <SimpleTable
+                    table={table}
+                    data={data}
+                    isLoading={isLoading}
+                    columns={columns}
+                    onRowClick={handleRowClick}
+                    headers={
+                        table.getHeaderGroups().map((group: any) => (
+                            <TableRow key={group.id} className="border-zinc-900 dark:border-zinc-500">
+                                {group.headers.map((header: any) => {
+                                    if (header.isPlaceholder) return <TableHead key={header.id}/>;
+
+                                    const {column} = header;
+                                    const key = column.id;
+                                    const canSort = column.columnDef.enableSorting ?? true;
+                                    const sortItem = sort.items.find(item => item.key === key);
+                                    const sortIndex = sort.items.findIndex(item => item.key === key);
+
+                                    return (
+                                        <TableHead
+                                            key={header.id}
+                                            style={{
+                                                width: `${column.columnDef.widthPercent ?? (100 / table.getVisibleFlatColumns().length)}%`,
+                                            }}
+                                            onClick={() => canSort && handleSortToggle(key)}
+                                            className={canSort ? "cursor-pointer select-none" : ""}
+                                        >
+                                            <div className="flex items-center gap-1">
+                                                {flexRender(column.columnDef.header, header.getContext())}
+                                                {sortItem?.order === SortDirection.ASC &&
+                                                    <ArrowUp className="w-4 h-4"/>}
+                                                {sortItem?.order === SortDirection.DESC &&
+                                                    <ArrowDown className="w-4 h-4"/>}
+                                                {sortIndex !== -1 && (
+                                                    <span
+                                                        className="text-xs text-muted-foreground">{sortIndex + 1}</span>
+                                                )}
+                                            </div>
+                                        </TableHead>
+                                    );
+                                })}
+                            </TableRow>
+                        ))
+                    }
+                />
             </div>
-            <div className="flex items-center justify-end space-x-2 py-4">
-                {table.getAllColumns().some(col => col.id === 'select') && (
-                    <div className="flex-1 text-sm text-muted-foreground">
-                        {t("table_selection", {
-                            selected: table.getFilteredSelectedRowModel().rows.length,
-                            total: table.getFilteredRowModel().rows.length,
-                        })}
-                    </div>
-                )}
+
+            <div className="flex justify-end items-center gap-4 py-4">
+                <span className="text-sm text-muted-foreground">{t("pagination.page")}:</span>
+                        <Select value={String(pagination.itemsPerPage)} onValueChange={(v) => updateItemsPerPage(parseInt(v))}>
+                            <SelectTrigger className="w-[80px] border-zinc-900 dark:border-zinc-50">
+                                <SelectValue placeholder={pagination.itemsPerPage.toString()}/>
+                            </SelectTrigger>
+                            <SelectContent>
+                                {paginationOptions.map((option) => (
+                                    <SelectItem key={option} value={String(option)}>
+                                        {option}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
+                        <span className="text-sm text-muted-foreground">
+                  {t("pagination.info", {
+                      from: totalCount === 0 ? 0 : (pagination.page - 1) * pagination.itemsPerPage + 1,
+                      to: Math.min(totalCount, pagination.page * pagination.itemsPerPage),
+                      total: totalCount,
+                  })}
+                </span>
+
                 <div className="space-x-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => table.previousPage()}
-                        disabled={(data?.length ?? 0) === 0 || !table.getCanPreviousPage()}
-                    >
-                        {t("button.previous")}
+                    <Button variant="outline" size="sm" onClick={() => updatePage(1)} disabled={pagination.page === 1}>
+                        <ChevronsLeft className="w-4 h-4"/>
                     </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => table.nextPage()}
-                        disabled={(data?.length ?? 0) === 0 || !table.getCanNextPage()}
-                    >
-                        {t("button.next")}
+                    <Button variant="outline" size="sm" onClick={() => updatePage(pagination.page - 1)} disabled={pagination.page === 1}>
+                        <ChevronLeft className="w-4 h-4"/>
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => updatePage(pagination.page + 1)} disabled={pagination.page >= maxPage}>
+                        <ChevronRight className="w-4 h-4"/>
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => updatePage(maxPage)} disabled={pagination.page >= maxPage}>
+                        <ChevronsRight className="w-4 h-4"/>
                     </Button>
                 </div>
             </div>
+
             <Dialog open={isRowDialogOpen} onOpenChange={setIsRowDialogOpen}>
-                {selectedRow && rowDialogContent && rowDialogContent(selectedRow.original, () => setIsRowDialogOpen(false))}
+                {selectedRow && rowDialogContent?.(selectedRow.original, () => setIsRowDialogOpen(false))}
             </Dialog>
+
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                {addDialogContent && addDialogContent(() => setIsAddDialogOpen(false))}
+                {addDialogContent?.(() => setIsAddDialogOpen(false))}
             </Dialog>
         </div>
-)
+    );
 }
